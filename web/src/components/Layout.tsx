@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Receipt, Target, BarChart3, User, LogOut, Menu, X, Wallet } from 'lucide-react';
+import { LayoutDashboard, Receipt, Target, BarChart3, User, LogOut, Menu, X, Wallet, Upload } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
@@ -28,6 +28,7 @@ export default function Layout() {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/accounts', icon: Wallet, label: 'Accounts' },
     { to: '/transactions', icon: Receipt, label: 'Transactions' },
+    { to: '/import', icon: Upload, label: 'Import' },
     { to: '/budgets', icon: Target, label: 'Budgets' },
     { to: '/reports', icon: BarChart3, label: 'Reports' },
     { to: '/profile', icon: User, label: 'Profile' },

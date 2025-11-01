@@ -32,6 +32,9 @@ model users {
   budgets       budgets[]
   budget_plans  budget_plans[]
   refresh_tokens refresh_tokens[]
+  import_jobs   import_jobs[]
+  notifications notifications[]
+  category_learning category_learning[]
 
   @@index([email])
   @@index([phone])
@@ -91,6 +94,7 @@ model categories {
   transactions transactions[]
   budgets      budgets[]
   budget_items budget_items[]
+  category_learning category_learning[]
   
   @@index([user_id, type])
   @@map("categories")
@@ -115,6 +119,7 @@ model transactions {
   user     users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
   account  accounts?   @relation(fields: [account_id], references: [id], onDelete: SetNull)
   category categories? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  attachments transaction_attachments[]
   
   @@index([user_id, tx_date])
   @@index([user_id, type])
@@ -188,4 +193,140 @@ model budgets {
   @@unique([user_id, category_id, period_month, period_year])
   @@index([user_id, period_month, period_year])
   @@map("budgets")
+}
+
+// Import Jobs - Track CSV/Excel import sessions
+model import_jobs {
+  id           String   @id @default(uuid())
+  user_id      String
+  filename     String
+  file_size    Int
+  total_rows   Int
+  processed_rows Int    @default(0)
+  successful_rows Int   @default(0)
+  failed_rows     Int   @default(0)
+  status       String   // pending, processing, completed, failed
+  mapping_data Json?    // Store column mapping configuration
+  preview_data Json?    // Store first 5 rows for preview
+  error_log    String?  @db.Text
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  completed_at DateTime?
+  
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  import_rows import_rows[]
+  
+  @@index([user_id, status])
+  @@index([created_at])
+  @@map("import_jobs")
+}
+
+// Import Rows - Individual rows from CSV with idempotency
+model import_rows {
+  id           String   @id @default(uuid())
+  import_job_id String
+  row_number   Int
+  idempotency_key String // Hash of key fields to prevent duplicates
+  raw_data     Json     // Original CSV row data
+  mapped_data  Json?    // Data after column mapping
+  transaction_id String? // Created transaction ID if successful
+  status       String   // pending, processed, failed, duplicate
+  error_message String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  import_job import_jobs @relation(fields: [import_job_id], references: [id], onDelete: Cascade)
+  
+  @@unique([import_job_id, idempotency_key])
+  @@index([import_job_id, status])
+  @@index([idempotency_key])
+  @@map("import_rows")
+}
+
+// Notifications system for alerts and digests
+model notifications {
+  id          String   @id @default(uuid())
+  user_id     String
+  type        String   // budget_alert, daily_digest, import_complete
+  title       String
+  message     String   @db.Text
+  data        Json?    // Additional notification data
+  channels    String[] // email, in_app, push
+  status      String   @default("pending") // pending, sent, failed
+  read_at     DateTime?
+  sent_at     DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id, status])
+  @@index([user_id, read_at])
+  @@index([created_at])
+  @@map("notifications")
+}
+
+// Exchange rates for multi-currency support
+model fx_rates {
+  id          String   @id @default(uuid())
+  base_currency String // e.g., "USD"
+  target_currency String // e.g., "SLL"
+  rate        Decimal  @db.Decimal(15, 8)
+  source      String   @default("static") // static, api, manual
+  valid_from  DateTime
+  valid_until DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  @@unique([base_currency, target_currency, valid_from])
+  @@index([base_currency, target_currency])
+  @@index([valid_from])
+  @@map("fx_rates")
+}
+
+// Transaction Attachments - Receipts and documents
+model transaction_attachments {
+  id             String   @id @default(uuid())
+  transaction_id String
+  filename       String
+  original_name  String
+  file_size      Int
+  mime_type      String
+  storage_path   String   // Path in S3/MinIO
+  storage_url    String?  // Public URL if applicable
+  thumbnail_path String?  // For image thumbnails
+  extracted_text String?  @db.Text // OCR extracted text
+  metadata       Json?    // Additional file metadata
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  
+  transaction transactions @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  
+  @@index([transaction_id])
+  @@index([created_at])
+  @@map("transaction_attachments")
+}
+
+// Category Learning Data - Track user categorization patterns
+model category_learning {
+  id               String   @id @default(uuid())
+  user_id          String
+  description_hash String   // Hash of normalized description
+  merchant         String?  // Extracted merchant name
+  amount_range     String?  // small, medium, large
+  category_id      String
+  confidence       Decimal  @db.Decimal(5, 2) // 0-100
+  feedback_score   Int      @default(0) // -1, 0, 1 for user feedback
+  times_used       Int      @default(1)
+  last_used        DateTime @default(now())
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  
+  user     users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category categories @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, description_hash])
+  @@index([user_id, merchant])
+  @@index([user_id, confidence])
+  @@map("category_learning")
 }

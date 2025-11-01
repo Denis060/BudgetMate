@@ -28,6 +28,8 @@ import transactionRoutes from './routes/transaction.routes';
 import budgetRoutes from './routes/budget.routes';
 import reportRoutes from './routes/report.routes';
 import userRoutes from './routes/user.routes';
+import importRoutes from './routes/import.routes';
+import smartCategorizationRoutes from './routes/smartCategorization.routes';
 
 // Initialize Express app
 const app: Application = express();
@@ -75,6 +77,8 @@ app.use(`${API_PREFIX}/transactions`, transactionRoutes);
 app.use(`${API_PREFIX}/budgets`, budgetRoutes);
 app.use(`${API_PREFIX}/reports`, reportRoutes);
 app.use(`${API_PREFIX}/users`, userRoutes);
+app.use(`${API_PREFIX}/import`, importRoutes);
+app.use(`${API_PREFIX}/smart-categories`, smartCategorizationRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

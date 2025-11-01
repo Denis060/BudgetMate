@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Edit, Trash2, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, Edit2, Trash2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
+import SmartCategorySuggestions from '../components/SmartCategorySuggestions';
 
 interface Transaction {
   id: string;
@@ -245,6 +246,19 @@ export default function Transactions() {
         const response = await api.post('/transactions', transactionData);
         console.log('Transaction created:', response.data);
         toast.success('Transaction added successfully');
+        
+        // Learn from this categorization choice for smart suggestions
+        try {
+          await api.post('/smart-categories/learn', {
+            description: formData.description,
+            amount: parseFloat(formData.amount),
+            chosenCategoryId: formData.category_id,
+          });
+        } catch (learningError) {
+          console.error('Failed to learn from categorization:', learningError);
+          // Don't show error to user as this is background learning
+        }
+        
         // Reset to first page to see the new transaction (sorted by newest first)
         setCurrentPage(1);
       }
@@ -761,6 +775,22 @@ export default function Transactions() {
                     </option>
                   ))}
                 </select>
+                
+                {/* Smart Category Suggestions */}
+                {formData.description && formData.amount && (
+                  <SmartCategorySuggestions
+                    description={formData.description}
+                    amount={parseFloat(formData.amount) || 0}
+                    selectedCategoryId={formData.category_id}
+                    onCategorySelect={(categoryId) => {
+                      setFormData({...formData, category_id: categoryId});
+                      // Learn from this choice when form is submitted
+                    }}
+                    onFeedback={(categoryId, isPositive) => {
+                      // Feedback is handled by the component itself
+                    }}
+                  />
+                )}
               </div>
 
               {/* Date */}

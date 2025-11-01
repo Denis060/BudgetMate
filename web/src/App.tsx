@@ -8,6 +8,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Accounts from './pages/Accounts';
 import Transactions from './pages/Transactions';
+import Import from './pages/Import';
 import Budgets from './pages/Budgets';
 import Reports from './pages/Reports';
 import Profile from './pages/Profile';
@@ -98,6 +99,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="accounts" element={<Accounts />} />
           <Route path="transactions" element={<Transactions />} />
+          <Route path="import" element={<Import />} />
           <Route path="budgets" element={<Budgets />} />
           <Route path="reports" element={<Reports />} />
           <Route path="profile" element={<Profile />} />
