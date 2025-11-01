@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import {
   uploadCSV,
   configureMapping,
@@ -12,10 +12,10 @@ import {
 const router = Router();
 
 // All import routes require authentication
-router.use(auth);
+router.use(authenticate);
 
 // Upload CSV file for analysis
-router.post('/upload', uploadCSV);
+router.post('/upload', ...uploadCSV);
 
 // Configure column mapping for import job
 router.put('/:jobId/mapping', configureMapping);

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import {
   suggestCategory,
   learnFromChoice,
@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 // All smart categorization routes require authentication
-router.use(auth);
+router.use(authenticate);
 
 // Get category suggestions for a transaction
 router.post('/suggest', suggestCategory);
