@@ -1,0 +1,191 @@
+// BudgetMate Database Schema
+// LionTek Global - Open Source Finance Tracker
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Core authentication and user profile
+model users {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  phone         String?  @unique
+  password_hash String
+  first_name    String?
+  last_name     String?
+  currency      String   @default("SLL") // Default to Sierra Leone Leone
+  timezone      String   @default("Africa/Freetown")
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  last_login    DateTime?
+  is_active     Boolean  @default(true)
+  
+  // Relations
+  accounts      accounts[]
+  categories    categories[]
+  transactions  transactions[]
+  budgets       budgets[]
+  budget_plans  budget_plans[]
+  refresh_tokens refresh_tokens[]
+
+  @@index([email])
+  @@index([phone])
+  @@map("users")
+}
+
+// Refresh tokens for JWT authentication
+model refresh_tokens {
+  id         String   @id @default(uuid())
+  user_id    String
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+  revoked    Boolean  @default(false)
+  
+  user users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// Financial accounts (Cash, Bank, Mobile Money, etc.)
+model accounts {
+  id          String   @id @default(uuid())
+  user_id     String
+  name        String   // e.g., "Orange Money", "GTBank Savings"
+  type        String   // cash, bank, mobile_money, credit_card
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  currency    String   @default("SLL")
+  icon        String?  // Icon identifier for UI
+  color       String?  // Color code for UI
+  is_default  Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  user         users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  transactions transactions[]
+  
+  @@index([user_id])
+  @@map("accounts")
+}
+
+// Transaction categories
+model categories {
+  id         String   @id @default(uuid())
+  user_id    String
+  name       String   // e.g., "Food", "Transport", "Salary"
+  type       String   // income, expense
+  icon       String?  // Icon identifier
+  color      String?  // Color code
+  is_default Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  user         users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  transactions transactions[]
+  budgets      budgets[]
+  budget_items budget_items[]
+  
+  @@index([user_id, type])
+  @@map("categories")
+}
+
+// Transactions (Income and Expenses)
+model transactions {
+  id          String   @id @default(uuid())
+  user_id     String
+  account_id  String?
+  category_id String?
+  amount      Decimal  @db.Decimal(15, 2)
+  type        String   // income, expense
+  description String?
+  tx_date     DateTime // Transaction date (can be different from created_at)
+  mode        String   @default("cash") // cash, card, transfer, mobile_money
+  reference   String?  // External reference number
+  notes       String?  @db.Text
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  user     users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  account  accounts?   @relation(fields: [account_id], references: [id], onDelete: SetNull)
+  category categories? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  
+  @@index([user_id, tx_date])
+  @@index([user_id, type])
+  @@index([account_id])
+  @@index([category_id])
+  @@map("transactions")
+}
+
+// Enhanced Budget Management System
+model budget_plans {
+  id          String   @id @default(uuid())
+  user_id     String
+  name        String
+  description String?
+  period_type String   // monthly, weekly, yearly, custom
+  start_date  DateTime
+  end_date    DateTime
+  total_allocated Decimal @db.Decimal(15, 2)
+  total_spent     Decimal @db.Decimal(15, 2) @default(0)
+  status      String   @default("active") // active, completed, paused, archived
+  currency    String   @default("SLL")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  user            users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  budget_items    budget_items[]
+  
+  @@index([user_id, status])
+  @@index([user_id, period_type])
+  @@map("budget_plans")
+}
+
+model budget_items {
+  id            String   @id @default(uuid())
+  budget_plan_id String
+  category_id   String?
+  account_filter String? // Optional: filter spending to specific account
+  name          String
+  allocated_amount Decimal @db.Decimal(15, 2)
+  spent_amount     Decimal @db.Decimal(15, 2) @default(0)
+  alert_threshold  Decimal? @db.Decimal(5, 2) // Alert when X% of budget is used
+  is_essential     Boolean @default(false) // Mark as essential expense
+  notes           String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  budget_plan budget_plans @relation(fields: [budget_plan_id], references: [id], onDelete: Cascade)
+  category    categories?  @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  
+  @@index([budget_plan_id])
+  @@index([category_id])
+  @@map("budget_items")
+}
+
+// Monthly budgets by category (keep existing for backward compatibility)
+model budgets {
+  id           String   @id @default(uuid())
+  user_id      String
+  category_id  String
+  limit_amount Decimal  @db.Decimal(15, 2)
+  period_month Int      // 1-12
+  period_year  Int      // e.g., 2024
+  alert_threshold Decimal? @db.Decimal(5, 2) // Alert when X% of budget is used (e.g., 80.00)
+  status       String   @default("active") // active, completed, exceeded
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  user     users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category categories @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, category_id, period_month, period_year])
+  @@index([user_id, period_month, period_year])
+  @@map("budgets")
+}
